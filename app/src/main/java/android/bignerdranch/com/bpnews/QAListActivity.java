@@ -1,6 +1,10 @@
 package android.bignerdranch.com.bpnews;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.provider.ContactsContract;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -29,6 +33,7 @@ public class QAListActivity extends AppCompatActivity {
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private List<BPQuestion> mQAList;
+    private UserPictureDownloader<QAListViewHolder> mUserPictureDownloader;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +44,17 @@ public class QAListActivity extends AppCompatActivity {
         mQAList = new ArrayList<>();
         mAdapter = new QAListAdapter();
         mRecyclerView.setAdapter(mAdapter);
+        Handler responseHandler = new Handler();
+        mUserPictureDownloader = new UserPictureDownloader<>(responseHandler);
+        mUserPictureDownloader.setUserPictureDownloadListener(new UserPictureDownloader.UserPictureDownloadListener<QAListViewHolder>() {
+            @Override
+            public void onUserPictureDownloaded(QAListViewHolder qaHolder, Bitmap userPicture) {
+                Drawable drawable = new BitmapDrawable(getResources(), userPicture);
+                qaHolder.bindUserPicture(drawable);
+            }
+        });
+        mUserPictureDownloader.start();
+        mUserPictureDownloader.getLooper();
         getQAList();
     }
 
@@ -113,6 +129,10 @@ public class QAListActivity extends AppCompatActivity {
             mQuestionText = (TextView) itemView.findViewById(R.id.qalist_element_title);
             mQuestionDescription = (TextView) itemView.findViewById(R.id.qalist_element_description);
         }
+
+        public void bindUserPicture(Drawable drawable) {
+            mAuthorImage.setImageDrawable(drawable);
+        }
     }
 
     private class QAListAdapter extends RecyclerView.Adapter<QAListViewHolder>{
@@ -131,11 +151,18 @@ public class QAListActivity extends AppCompatActivity {
             holder.mQuestionText.setText(question.getTitle());
             holder.mAuthorName.setText(question.getAuthorName());
             holder.mQuestionDescription.setText(question.getQuestionDescription());
+            mUserPictureDownloader.queueUserPicture(holder, question.getAuthorPhotoUrl());
         }
 
         @Override
         public int getItemCount() {
            return mQAList.size();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mUserPictureDownloader.clearQueue();
     }
 }
